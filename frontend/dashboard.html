@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Buddy - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Custom Scrollbar for Chat */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(20, 184, 166, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(20, 184, 166, 0.5); }
+    </style>
+</head>
+<body class="bg-gray-950 text-white h-screen font-sans antialiased overflow-hidden flex selection:bg-teal-500 selection:text-white">
+
+    <!-- Profile Setup Modal -->
+    <div id="profile-modal" class="absolute inset-0 z-50 hidden flex items-center justify-center bg-gray-950/90 backdrop-blur-md">
+        <div class="glass-panel p-8 rounded-2xl max-w-md w-full shadow-2xl border-teal-500/50">
+            <h3 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-400 mb-2">Initialize AI Buddy</h3>
+            <p class="text-gray-400 text-sm mb-6">Tell me a bit about yourself so I can personalize my help.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 tracking-wide uppercase">Your Name</label>
+                    <input type="text" id="profile-name" class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-teal-500 transition-colors" placeholder="e.g. Alex">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 tracking-wide uppercase">Experience Level</label>
+                    <select id="profile-exp" class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-teal-500 transition-colors cursor-pointer">
+                        <option value="Beginner">Beginner (Detailed Explanations)</option>
+                        <option value="Intermediate">Intermediate (Standard)</option>
+                        <option value="Expert">Expert (Concise, highly technical)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 tracking-wide uppercase">Favorite Stack</label>
+                    <input type="text" id="profile-stack" class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-teal-500 transition-colors" placeholder="e.g. Python, React, Rust">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 tracking-wide uppercase">Current Goals / Projects</label>
+                    <textarea id="profile-goals" rows="2" class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-teal-500 transition-colors" placeholder="I am casually building a college project about..."></textarea>
+                </div>
+                <button onclick="saveProfile()" class="w-full bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-400 hover:to-blue-400 text-white font-bold py-3 rounded-xl mt-6 shadow-lg shadow-teal-500/25 transition-all transform hover:-translate-y-0.5">Save & Launch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <nav class="w-20 md:w-64 border-r border-white/5 flex flex-col justify-between py-6 bg-gray-900/30 z-10 hidden sm:flex">
+        <div>
+            <div class="px-6 flex items-center gap-3 mb-10 cursor-pointer" onclick="window.location.href='index.html'">
+                <i class="fas fa-robot text-teal-400 text-2xl"></i>
+                <span class="font-bold text-xl tracking-wider hidden md:block">AI <span class="text-teal-400">Buddy</span></span>
+            </div>
+            
+            <div class="space-y-2 px-3">
+                <div class="bg-teal-500/10 text-teal-400 border border-teal-500/20 px-4 py-3 rounded-lg flex items-center gap-3 cursor-pointer">
+                    <i class="fas fa-comment-dots text-lg"></i>
+                    <span class="font-medium hidden md:block">Chat Room</span>
+                </div>
+                <!-- Future tabs can go here -->
+            </div>
+        </div>
+        
+        <div class="px-6">
+            <div class="flex items-center gap-3 text-sm text-gray-500 hover:text-gray-300 cursor-pointer transition" onclick="document.getElementById('profile-modal').classList.remove('hidden')">
+                <i class="fas fa-cog"></i>
+                <span class="hidden md:block">Settings</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row h-full">
+        
+        <!-- Chat Area (Center) -->
+        <section class="flex-1 flex flex-col relative h-full border-r border-white/5">
+            <!-- Header -->
+            <header class="h-16 border-b border-white/5 flex items-center px-6 glass-panel sticky top-0 z-20">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+                    <span class="font-medium">Active</span>
+                </div>
+            </header>
+
+            <!-- Messages Window -->
+            <div id="chat-window" class="flex-1 overflow-y-auto p-6 space-y-6 pb-32">
+                <div class="text-center text-gray-500 text-xs my-4 border-b border-white/5 pb-4">
+                    Connection to hardware simulator established.
+                </div>
+            </div>
+
+            <!-- Input Box -->
+            <div class="absolute bottom-0 w-full p-4 bg-gradient-to-t from-gray-950 via-gray-950 to-transparent">
+                <div class="max-w-4xl mx-auto relative flex items-center">
+                    <button id="mic-btn" onclick="toggleVoice()" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 text-gray-500 hover:text-teal-400 rounded-lg flex items-center justify-center transition-colors z-10" title="Toggle Voice Mode & Auto-Listen">
+                        <i class="fas fa-microphone text-lg"></i>
+                    </button>
+                    <input type="text" id="chat-input" placeholder="Ask Buddy to review code, add a task, or explain concepts..." class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl pl-14 pr-14 py-4 shadow-xl focus:outline-none focus:border-teal-500 transition-colors" onkeydown="if(event.key === 'Enter') sendChat()">
+                    <button onclick="sendChat()" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-teal-500 hover:bg-teal-400 text-gray-900 rounded-lg flex items-center justify-center transition-colors z-10">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Sidebar (Tasks) -->
+        <aside class="w-full lg:w-80 bg-gray-900/20 flex flex-col h-1/3 lg:h-full border-t lg:border-t-0 border-white/5 z-20 shadow-2xl">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gray-900/50">
+                <h3 class="font-bold flex items-center gap-2 text-teal-400">
+                    <i class="fas fa-list-check"></i> Live Tasks
+                </h3>
+                <button onclick="fetchTasks()" class="text-gray-500 hover:text-white transition" title="Refresh">
+                    <i class="fas fa-sync-alt text-sm"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4">
+                <ul id="task-list" class="space-y-3">
+                    <li class="p-4 bg-gray-900/50 rounded-xl border border-gray-800 text-gray-500 italic text-center text-sm">Loading tasks...</li>
+                </ul>
+            </div>
+
+            <div class="p-4 bg-gray-900/50 border-t border-white/5 relative">
+                <input type="text" id="task-input" placeholder="Quick add task..." class="w-full bg-gray-950 border border-gray-800 text-sm text-white rounded-lg pl-4 pr-10 py-3 focus:outline-none focus:border-blue-500 transition-colors" onkeydown="if(event.key === 'Enter') addTask()">
+                <button onclick="addTask()" class="absolute right-6 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- App Logic -->
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        // --- VOICE ASSISTANT LOGIC ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isVoiceMode = false;
+        let synth = window.speechSynthesis;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                
+                // Active Interruption: If AI is actively talking and we hear the user speak, shut the AI up instantly.
+                if (synth.speaking) {
+                    synth.cancel();
+                    document.getElementById('chat-window').innerHTML += `<div class="text-center text-gray-500 text-xs my-2 italic">User interrupted AI...</div>`;
+                }
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    }
+                }
+                
+                if (finalTranscript.trim() !== '') {
+                    document.getElementById('chat-input').value = finalTranscript;
+                    sendChat(); // Automatically send when finished speaking
+                }
+            };
+
+            recognition.onend = () => {
+                // Auto-restart if voice mode is still enabled
+                if (isVoiceMode) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            };
+        }
+
+        function toggleVoice() {
+            const micBtn = document.getElementById("mic-btn");
+            if (!recognition) return alert("Speech recognition not supported in this browser. Try Chrome/Edge!");
+            
+            isVoiceMode = !isVoiceMode;
+            if (isVoiceMode) {
+                micBtn.classList.remove("text-gray-500", "hover:text-teal-400");
+                micBtn.classList.add("text-red-500", "animate-pulse");
+                micBtn.title = "Voice Mode LIVE (Click to turn off)";
+                recognition.start();
+                synth.cancel(); // Stop talking if we turn it on
+            } else {
+                micBtn.classList.add("text-gray-500", "hover:text-teal-400");
+                micBtn.classList.remove("text-red-500", "animate-pulse");
+                micBtn.title = "Turn on Voice Mode";
+                recognition.stop();
+                synth.cancel();
+            }
+        }
+        // ------------------------------
+
+        async function checkProfile() {
+            try {
+                const res = await fetch(`${API_BASE}/profile`);
+                const profile = await res.json();
+                if (!profile || !profile.name) {
+                    document.getElementById("profile-modal").classList.remove("hidden");
+                }
+            } catch(e) {
+                console.error("Backend not running yet.");
+            }
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById("profile-name").value;
+            const exp = document.getElementById("profile-exp").value;
+            const stack = document.getElementById("profile-stack").value;
+            const goals = document.getElementById("profile-goals").value;
+            
+            if(!name) return alert("Name is required!");
+
+            await fetch(`${API_BASE}/profile`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, experience_level: exp, favorite_stack: stack, current_goals: goals })
+            });
+
+            document.getElementById("profile-modal").classList.add("hidden");
+            
+            const chatWindow = document.getElementById("chat-window");
+            chatWindow.innerHTML += `
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0">
+                        <i class="fas fa-robot text-teal-400 text-xs"></i>
+                    </div>
+                    <div class="bg-gray-800/50 border border-gray-700/50 p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm">
+                        Profile saved! I will now tailor my responses for <b>${name}</b> at an <b>${exp}</b> level. How can I help you today?
+                    </div>
+                </div>
+            `;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById("chat-input");
+            const chatWindow = document.getElementById("chat-window");
+            const userMsg = input.value.trim();
+            if(!userMsg) return;
+
+            // Display user message
+            chatWindow.innerHTML += `
+                <div class="flex gap-4 flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                        <i class="fas fa-user text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="bg-teal-600 p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm break-words shadow-lg shadow-teal-900/20">
+                        ${userMsg}
+                    </div>
+                </div>
+            `;
+            input.value = "";
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            try {
+                // Show loading indicator
+                const loadingId = "loader-" + Date.now();
+                chatWindow.innerHTML += `
+                    <div id="${loadingId}" class="flex gap-4">
+                        <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0 animate-pulse">
+                            <i class="fas fa-circle-notch fa-spin text-teal-400 text-xs"></i>
+                        </div>
+                        <div class="bg-gray-800/50 border border-gray-700/50 p-4 rounded-2xl rounded-tl-none text-xs text-gray-400 italic">
+                            Thinking...
+                        </div>
+                    </div>
+                `;
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: userMsg })
+                });
+                
+                const data = await response.json();
+                document.getElementById(loadingId).remove();
+                
+                const reply = data.response || `Error: ${data.error}`;
+                
+                // Format text using marked.js
+                const formattedReply = marked.parse(reply);
+
+                chatWindow.innerHTML += `
+                    <div class="flex gap-4">
+                        <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(20,184,166,0.2)]">
+                            <i class="fas fa-robot text-teal-400 text-xs"></i>
+                        </div>
+                        <div class="bg-gray-800/80 border border-gray-700/50 p-5 rounded-2xl rounded-tl-none max-w-[85%] sm:max-w-[75%] break-words prose prose-sm prose-invert prose-teal max-w-none shadow-lg">
+                            ${formattedReply}
+                        </div>
+                    </div>
+                `;
+                
+                // If a task tag was in the reply, reload tasks
+                if (reply.includes("*(Task added:")) {
+                    fetchTasks();
+                }
+
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                // Talk back if voice mode is activated
+                if (isVoiceMode) {
+                    const textToSpeak = reply.replace(/[\*\#\`\_]/g, ''); // Strip raw markdown syntax before speaking
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                    synth.speak(utterance);
+                }
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById(loadingId)?.remove();
+                chatWindow.innerHTML += `<div class="text-center text-red-500 text-xs mt-2 p-2 bg-red-950/30 border border-red-900 rounded-lg">Connection error! Make sure backend 'app.py' is running.</div>`;
+            }
+        }
+
+        async function fetchTasks() {
+            const taskList = document.getElementById("task-list");
+            taskList.innerHTML = `<li class="p-4 bg-gray-900/50 rounded-xl border border-gray-800 text-teal-500 italic text-center text-sm animate-pulse">Syncing...</li>`;
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks`);
+                const data = await response.json();
+                
+                taskList.innerHTML = "";
+                if(data.tasks && data.tasks.length > 0) {
+                    data.tasks.forEach((task, index) => {
+                        taskList.innerHTML += `
+                            <li class="group flex items-start gap-3 p-4 bg-gray-800/40 rounded-xl border border-gray-700/50 hover:border-teal-500/50 hover:bg-gray-800/80 transition-all cursor-default">
+                                <div class="w-6 h-6 rounded-full bg-gray-900 border border-gray-600 text-gray-400 group-hover:bg-teal-500/20 group-hover:border-teal-500 group-hover:text-teal-400 flex items-center justify-center text-xs shrink-0 mt-0.5 transition-colors">${index + 1}</div>
+                                <span class="text-gray-300 text-sm leading-relaxed break-words flex-1">${task}</span>
+                            </li>
+                        `;
+                    });
+                } else {
+                    taskList.innerHTML = `
+                        <div class="h-32 flex flex-col items-center justify-center text-gray-500">
+                            <i class="fas fa-clipboard-check text-2xl mb-2 text-gray-600"></i>
+                            <span class="text-sm">All caught up!</span>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                taskList.innerHTML = `<li class="p-4 bg-red-950/20 rounded-xl text-red-400 text-xs border border-red-900/50 text-center">Backend offline</li>`;
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById("task-input");
+            const task = input.value.trim();
+            if(!task) return;
+            
+            // clear instantly for good UX
+            input.value = "";
+            
+            // Optimistic update
+            const taskList = document.getElementById("task-list");
+            taskList.innerHTML += `<li class="p-4 bg-gray-800/40 rounded-xl border border-teal-500/50 opacity-50 text-sm">Saving...</li>`;
+
+            try {
+                await fetch(`${API_BASE}/add_task`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ task: task })
+                });
+                fetchTasks(); // Reload pure source of truth
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Run
+        window.onload = () => {
+            checkProfile();
+            fetchTasks();
+        };
+    </script>
+</body>
+</html>

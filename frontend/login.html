@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Login - AI Buddy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(55, 65, 81, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <!-- Background glow -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[100px] -z-10"></div>
+
+    <div class="glass-panel p-8 rounded-2xl w-full max-w-md shadow-2xl relative z-10 text-center">
+        <h2 class="text-3xl font-bold mb-2">Face ID Login</h2>
+        <p class="text-gray-400 mb-6">Position your face in the camera to securely sync your VS Code profile.</p>
+
+        <div class="relative w-full aspect-square bg-gray-900 rounded-xl overflow-hidden shadow-inner border border-gray-800 mb-6 flex items-center justify-center">
+            <video id="videoElement" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+            <div id="loadingOverlay" class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center hidden">
+                <i class="fas fa-spinner fa-spin text-4xl text-teal-400 mb-2"></i>
+                <p class="text-sm font-semibold text-teal-300 animate-pulse">Scanning Biometrics...</p>
+            </div>
+            <!-- Scanner Animation -->
+            <div id="scannerLine" class="hidden absolute top-0 left-0 w-full h-1 bg-teal-400 shadow-[0_0_15px_rgba(45,212,191,1)] z-20"></div>
+        </div>
+
+        <div id="statusMessage" class="h-6 text-sm font-medium mb-4 text-gray-300">
+            Waiting for camera...
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <button id="loginBtn" onclick="handleScan()" class="bg-teal-500 hover:bg-teal-400 text-gray-900 font-bold py-3 px-6 rounded-lg transition-all shadow-[0_0_20px_rgba(20,184,166,0.3)] hover:shadow-[0_0_30px_rgba(20,184,166,0.5)]">
+                <i class="fas fa-fingerprint mr-2"></i> Scan Face (Log in / Register)
+            </button>
+            <div id="registerDiv" class="hidden flex flex-col gap-2">
+                <input type="text" id="devName" placeholder="New user? Enter name..." class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 w-full text-white placeholder-gray-500 focus:outline-none focus:border-teal-500">
+                <div class="flex gap-2">
+                    <input type="tel" id="devPhone" placeholder="Enter phone for Telegram (e.g. +1234567890)" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 w-full text-white placeholder-gray-500 focus:outline-none focus:border-teal-500">
+                    <button onclick="captureAndRegister()" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-all whitespace-nowrap">
+                        Register
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6">
+            <a href="index.html" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">← Back to home</a>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const statusMsg = document.getElementById('statusMessage');
+        const overlay = document.getElementById('loadingOverlay');
+        const scannerLine = document.getElementById('scannerLine');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Initialize camera
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                video.srcObject = stream;
+                statusMsg.textContent = "Camera Ready. Align your face.";
+                statusMsg.className = "h-6 text-sm font-medium mb-4 text-teal-400";
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                statusMsg.textContent = "Hardware error: Camera access denied or unavailable.";
+                statusMsg.className = "h-6 text-sm font-medium mb-4 text-red-400";
+            }
+        }
+        
+        setupCamera();
+
+        function showScanning() {
+            overlay.classList.remove('hidden');
+            scannerLine.classList.remove('hidden');
+            // Simple animation loop for the scanner line
+            let position = 0;
+            let direction = 1;
+            const animate = () => {
+                if(overlay.classList.contains('hidden')) return;
+                position += 2 * direction;
+                if(position > 100 || position < 0) direction *= -1;
+                scannerLine.style.top = position + '%';
+                requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+        }
+
+        function hideScanning() {
+            overlay.classList.add('hidden');
+            scannerLine.classList.add('hidden');
+        }
+
+        async function takeSnapshot() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Convert to base64
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            return dataUrl;
+        }
+
+        async function handleScan() {
+            showScanning();
+            statusMsg.textContent = "Scanning biometrics...";
+            statusMsg.className = "h-6 text-sm font-medium mb-4 text-teal-400";
+            
+            const imageStr = await takeSnapshot();
+
+            try {
+                const resp = await fetch('http://localhost:8000/login_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageStr })
+                });
+                const data = await resp.json();
+                
+                hideScanning();
+                if (data.status === "success") {
+                    document.getElementById('registerDiv').classList.add('hidden');
+                    statusMsg.textContent = `Welcome back, ${data.user}!`;
+                    statusMsg.className = "h-6 text-sm font-medium mb-4 text-green-400";
+                    setTimeout(() => {
+                        // Pass username to dashboard or save to localStorage
+                        localStorage.setItem('ai_buddy_user', data.user);
+                        window.location.href = "dashboard.html";
+                    }, 1500);
+                } else {
+                    // Face not recognized, reveal registration field
+                    document.getElementById('registerDiv').classList.remove('hidden');
+                    statusMsg.textContent = `Face not recognized. Enter a name to register a new profile.`;
+                    statusMsg.className = "h-6 text-sm font-medium mb-4 text-yellow-400";
+                }
+            } catch (err) {
+                hideScanning();
+                statusMsg.textContent = "Network error. Is the backend running?";
+                statusMsg.className = "h-6 text-sm font-medium mb-4 text-red-400";
+            }
+        }
+
+        async function captureAndRegister() {
+            const devName = document.getElementById('devName').value.trim();
+            const devPhone = document.getElementById('devPhone').value.trim();
+            if (!devName || !devPhone) {
+                statusMsg.textContent = "Please enter both a username and phone number to register.";
+                statusMsg.className = "h-6 text-sm font-medium mb-4 text-red-400";
+                return;
+            }
+            
+            showScanning();
+            statusMsg.textContent = "Registering biometric profile...";
+            statusMsg.className = "h-6 text-sm font-medium mb-4 text-teal-400";
+            
+            const imageStr = await takeSnapshot();
+
+            try {
+                const resp = await fetch('http://localhost:8000/register_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageStr, name: devName, phone: devPhone })
+                });
+                const data = await resp.json();
+                
+                hideScanning();
+                if (data.status === "success") {
+                    statusMsg.textContent = `Profile generated for ${data.user}. Logging in...`;
+                    statusMsg.className = "h-6 text-sm font-medium mb-4 text-green-400";
+                    document.getElementById('registerDiv').classList.add('hidden');
+                    
+                    // Directly login after successful registration
+                    setTimeout(() => {
+                        localStorage.setItem('ai_buddy_user', data.user);
+                        window.location.href = "dashboard.html";
+                    }, 1500);
+                } else {
+                    statusMsg.textContent = `Error: ${data.message}`;
+                    statusMsg.className = "h-6 text-sm font-medium mb-4 text-red-400";
+                }
+            } catch (err) {
+                hideScanning();
+                statusMsg.textContent = "Network error. Is the backend running?";
+                statusMsg.className = "h-6 text-sm font-medium mb-4 text-red-400";
+            }
+        }
+    </script>
+</body>
+</html>

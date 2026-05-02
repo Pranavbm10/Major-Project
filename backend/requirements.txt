@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-telegram-bot
+requests
+speechRecognition
+pyttsx3
+google-generativeai
+python-multipart
+python-dotenv
+deepface
+tf-keras
+numpy
+opencv-python
+sqlalchemy
