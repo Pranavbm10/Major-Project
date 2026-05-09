@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 import json
 import uvicorn
+import asyncio
 import os
 import cv2
 import numpy as np
@@ -55,6 +56,47 @@ reminders = []
 tasks = []
 user_profile = {}
 
+# --- WebSocket Connection Manager for Avatar ---
+class AvatarConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        print("Avatar connected!")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            print("Avatar disconnected!")
+
+    async def send_state(self, state: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(state)
+            except Exception as e:
+                print(f"Error sending to avatar: {e}")
+
+avatar_manager = AvatarConnectionManager()
+
+@app.websocket("/ws/avatar")
+async def avatar_endpoint(websocket: WebSocket):
+    await avatar_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        avatar_manager.disconnect(websocket)
+
+# A simple POST endpoint so the VS Code extension can manually trigger animations
+@app.post("/avatar/trigger")
+async def trigger_animation(request: Request):
+    data = await request.json()
+    state = data.get("state", "idle")
+    await avatar_manager.send_state(state)
+    return {"status": "success", "state": state}
+
 @app.get("/")
 async def root():
     return {"message": "AI Buddy Backend is running with Gemini API"}
@@ -98,8 +140,11 @@ Respond naturally to the user first, then append the JSON block(s) if needed.
     full_prompt = f"{system_prompt}\n\nUser: {prompt}"
     
     try:
+        await avatar_manager.send_state("talking")
         response = model.generate_content(full_prompt)
         reply = response.text
+        await avatar_manager.send_state("idle")
+
         
         # Parse for action commands (add_task or update_profile)
         if "```json" in reply and '"action"' in reply:
@@ -133,10 +178,13 @@ async def suggest_code(request: Request):
     
     prompt = f"As an AI programming assistant, provide a concise suggestion, completion, or improvement for this code:\n\n{code_context}\n\nIMPORTANT: Output ONLY valid executable code. Do NOT enclose the code in markdown code blocks like ```python. Any explanation or reasoning MUST be provided as code comments."
     try:
+        await avatar_manager.send_state("talking")
         response = model.generate_content(prompt)
         suggestion = response.text
+        await avatar_manager.send_state("idle")
     except Exception as e:
         suggestion = f"# Error generating suggestion.\n# {str(e)}"
+        await avatar_manager.send_state("error")
         
     return {"suggestion": suggestion}
 

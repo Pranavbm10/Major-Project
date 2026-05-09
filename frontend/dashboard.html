@@ -289,37 +289,61 @@
                 });
                 
                 const data = await response.json();
-                document.getElementById(loadingId).remove();
+                const loaderEl = document.getElementById(loadingId);
+                if (loaderEl) loaderEl.remove();
                 
                 const reply = data.response || `Error: ${data.error}`;
                 
                 // Format text using marked.js
                 const formattedReply = marked.parse(reply);
+                
+                // Create a unique ID for this message container
+                const msgId = "msg-" + Date.now();
 
                 chatWindow.innerHTML += `
                     <div class="flex gap-4">
                         <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(20,184,166,0.2)]">
                             <i class="fas fa-robot text-teal-400 text-xs"></i>
                         </div>
-                        <div class="bg-gray-800/80 border border-gray-700/50 p-5 rounded-2xl rounded-tl-none max-w-[85%] sm:max-w-[75%] break-words prose prose-sm prose-invert prose-teal max-w-none shadow-lg">
-                            ${formattedReply}
+                        <div id="${msgId}" class="bg-gray-800/80 border border-gray-700/50 p-5 rounded-2xl rounded-tl-none max-w-[85%] sm:max-w-[75%] break-words prose prose-sm prose-invert prose-teal max-w-none shadow-lg">
+                            <!-- Content will stream here -->
                         </div>
                     </div>
                 `;
-                
-                // If a task tag was in the reply, reload tasks
-                if (reply.includes("*(Task added:")) {
-                    fetchTasks();
-                }
-
                 chatWindow.scrollTop = chatWindow.scrollHeight;
-
-                // Talk back if voice mode is activated
-                if (isVoiceMode) {
-                    const textToSpeak = reply.replace(/[\*\#\`\_]/g, ''); // Strip raw markdown syntax before speaking
-                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                    synth.speak(utterance);
+                
+                // Streaming Typewriter Effect
+                const contentContainer = document.getElementById(msgId);
+                const tokens = formattedReply.split(/(<[^>]+>|\\s+)/).filter(t => t.length > 0);
+                
+                let currentIdx = 0;
+                function streamTokens() {
+                    if (currentIdx < tokens.length) {
+                        contentContainer.innerHTML += tokens[currentIdx];
+                        currentIdx++;
+                        chatWindow.scrollTop = chatWindow.scrollHeight;
+                        
+                        // If it's a large HTML tag, skip typing delay, otherwise delay.
+                        if (tokens[currentIdx - 1].startsWith('<')) {
+                            streamTokens();
+                        } else {
+                            setTimeout(streamTokens, 20); // 20ms per token
+                        }
+                    } else {
+                        // Done typing
+                        if (reply.includes("*(Task added:")) {
+                            fetchTasks();
+                        }
+                        if (isVoiceMode) {
+                            const textToSpeak = reply.replace(/[\\*\\#\\`\\_]/g, '');
+                            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                            synth.speak(utterance);
+                        }
+                    }
                 }
+                
+                // Start streaming
+                streamTokens();
 
             } catch (err) {
                 console.error(err);

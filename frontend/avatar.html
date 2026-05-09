@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000; /* CRITICAL: Pure black background */
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Keeps your avatar from stretching */
+        }
+    </style>
+</head>
+<body>
+    <div id="start-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.8); color: white; display: flex; justify-content: center; align-items: center; font-size: 24px; cursor: pointer; z-index: 10;">
+        Tap anywhere to Start Hologram
+    </div>
+
+    <video id="holoVideo" autoplay loop muted playsinline>
+        <source id="videoSource" src="dle.mp4" type="video/mp4">
+    </video>
+
+    <script>
+        // For mobile browsers: User must tap the screen once to allow programmatic video swapping
+        document.getElementById('start-overlay').addEventListener('click', function() {
+            this.style.display = 'none';
+            document.getElementById('holoVideo').play();
+            console.log("Hologram interaction unlocked");
+        });
+
+        const video = document.getElementById('holoVideo');
+        const videoSource = document.getElementById('videoSource');
+
+        // Map the backend commands to your exact filenames
+        const videoFiles = {
+            'idle': 'dle.mp4',
+            'talking': 'Talking20001-0102.mp4',
+            'success': 'Celebrating0001-0250.mp4',
+            'error': 'Defeated0001-0250.mp4'
+        };
+
+        // Connect to FastAPI WebSocket backend
+        // We use the exact IP address of your machine so your phone can reach it!
+        const ws = new WebSocket('ws://10.221.239.183:8000/ws/avatar');
+
+        ws.onopen = () => {
+            console.log('Connected to AI Buddy Avatar Backend!');
+        };
+
+        ws.onmessage = (event) => {
+            const state = event.data; 
+            if (videoFiles[state]) {
+                const currentFile = videoSource.getAttribute('src');
+                if (currentFile !== videoFiles[state]) {
+                    // Instantly swap the video file and play
+                    videoSource.setAttribute('src', videoFiles[state]);
+                    video.load();
+                    video.play();
+                }
+            }
+        };
+    </script>
+</body>
+</html>

@@ -11,7 +11,9 @@
   ],
   "activationEvents": [
     "onCommand:aiBuddy.suggestCode",
-    "onCommand:aiBuddy.fixError"
+    "onCommand:aiBuddy.fixError",
+    "onCommand:aiBuddy.runCode",
+    "onCommand:aiBuddy.openChat"
   ],
   "main": "./src/extension.js",
   "contributes": {
@@ -23,6 +25,14 @@
       {
         "command": "aiBuddy.fixError",
         "title": "AI Buddy: Fix Errors"
+      },
+      {
+        "command": "aiBuddy.runCode",
+        "title": "AI Buddy: Run Code (Avatar Debug)"
+      },
+      {
+        "command": "aiBuddy.openChat",
+        "title": "AI Buddy: Open Chat"
       }
     ]
   },
