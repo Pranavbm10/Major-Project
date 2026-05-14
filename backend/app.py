@@ -46,7 +46,7 @@ init_db()
 
 # Configure Gemini
 # In a real project, read this from an environment variable: os.getenv("GEMINI_API_KEY")
-GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCmX1s9Gff-gyEfBsh7WhqdaO_uBOtiBY8")
+GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 # Initialize the model
 model = genai.GenerativeModel('gemini-3-flash-preview')
