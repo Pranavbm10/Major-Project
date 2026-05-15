@@ -45,8 +45,11 @@ def init_db():
 init_db()
 
 # Configure Gemini
-# In a real project, read this from an environment variable: os.getenv("GEMINI_API_KEY")
-GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCmX1s9Gff-gyEfBsh7WhqdaO_uBOtiBY8")
+# Load from environment variable, please set this in your .env file
+GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "AIzaSyCmX1s9Gff-gyEfBsh7WhqdaO_uBOtiBY8" or GOOGLE_API_KEY == "AIzaSyCf0pOwfrD1x7l-ZCm7ftU8YDd41dltVfY":
+    print("WARNING: Using a missing or potentially leaked API key. Please update GEMINI_API_KEY in .env")
+    
 genai.configure(api_key=GOOGLE_API_KEY)
 # Initialize the model
 model = genai.GenerativeModel('gemini-3-flash-preview')
@@ -140,11 +143,10 @@ Respond naturally to the user first, then append the JSON block(s) if needed.
     full_prompt = f"{system_prompt}\n\nUser: {prompt}"
     
     try:
-        await avatar_manager.send_state("talking")
+        # We can send "idle" while thinking instead of "talking", 
+        # or perhaps "thinking" if we had a video. For now we will just wait.
         response = model.generate_content(full_prompt)
         reply = response.text
-        await avatar_manager.send_state("idle")
-
         
         # Parse for action commands (add_task or update_profile)
         if "```json" in reply and '"action"' in reply:
@@ -166,6 +168,10 @@ Respond naturally to the user first, then append the JSON block(s) if needed.
                     
             except Exception as parse_e:
                 print("Failed to parse action json:", parse_e)
+
+        # Send the response to the avatar to speak
+        talk_cmd = json.dumps({"state": "talking", "text": reply})
+        await avatar_manager.send_state(talk_cmd)
                 
         return {"response": reply}
     except Exception as e:
@@ -178,13 +184,16 @@ async def suggest_code(request: Request):
     
     prompt = f"As an AI programming assistant, provide a concise suggestion, completion, or improvement for this code:\n\n{code_context}\n\nIMPORTANT: Output ONLY valid executable code. Do NOT enclose the code in markdown code blocks like ```python. Any explanation or reasoning MUST be provided as code comments."
     try:
-        await avatar_manager.send_state("talking")
         response = model.generate_content(prompt)
         suggestion = response.text
-        await avatar_manager.send_state("idle")
+        
+        # Send text to avatar to speak
+        talk_cmd = json.dumps({"state": "talking", "text": suggestion})
+        await avatar_manager.send_state(talk_cmd)
     except Exception as e:
         suggestion = f"# Error generating suggestion.\n# {str(e)}"
-        await avatar_manager.send_state("error")
+        err_cmd = json.dumps({"state": "error", "text": "I encountered an error."})
+        await avatar_manager.send_state(err_cmd)
         
     return {"suggestion": suggestion}
 

@@ -9,4 +9,24 @@ This project is a prototype for an AI programming assistant that acts like a phy
 4. **Simulation UI (`/simulation-ui`)**: A local interface (voice and text) to simulate the physical hologram hardware.
 
 ## Quick Start
-*To be added*
+
+1. **Install Dependencies**
+   Make sure you have Python 3 installed. Then, install the required packages:
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+2. **Environment Variables**
+   Create a `.env` file inside the `backend/` folder based on the provided example:
+   ```bash
+   cp .env.example backend/.env
+   ```
+   Open the `backend/.env` file and add your actual API keys (Gemini API key and Telegram Bot token).
+
+3. **Run the Project (Frontend + Backend)**
+   You can run both the frontend and backend servers together using the provided script:
+   ```bash
+   ./run.sh
+   ```
+   
+   The backend will start on `http://localhost:8000` and the frontend dashboard will be available at `http://localhost:3000`.

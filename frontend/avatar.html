@@ -51,24 +51,88 @@
             'error': 'Defeated0001-0250.mp4'
         };
 
-        // Connect to FastAPI WebSocket backend
-        // We use the exact IP address of your machine so your phone can reach it!
-        const ws = new WebSocket('ws://10.221.239.183:8000/ws/avatar');
+        // Connect to FastAPI WebSocket backend dynamically based on current host
+        const wsUrl = `ws://${window.location.hostname}:8000/ws/avatar`;
+        const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-            console.log('Connected to AI Buddy Avatar Backend!');
+            console.log(`Connected to AI Buddy Avatar Backend at ${wsUrl}!`);
         };
 
         ws.onmessage = (event) => {
-            const state = event.data; 
+            let data;
+            try {
+                data = JSON.parse(event.data);
+            } catch (e) {
+                // Fallback for simple state strings
+                data = { state: event.data };
+            }
+
+            const state = data.state;
+            
             if (videoFiles[state]) {
                 const currentFile = videoSource.getAttribute('src');
                 if (currentFile !== videoFiles[state]) {
                     // Instantly swap the video file and play
                     videoSource.setAttribute('src', videoFiles[state]);
+                    
+                    // Stop looping for all reactions (including talking). ONLY loop for idle.
+                    if (state === 'idle') {
+                        video.loop = true;
+                        video.onended = null;
+                    } else {
+                        video.loop = false;
+                        video.onended = () => {
+                            if (videoSource.getAttribute('src') !== videoFiles['idle']) {
+                                videoSource.setAttribute('src', videoFiles['idle']);
+                                video.loop = true;
+                                video.load();
+                                video.play();
+                            }
+                        };
+                    }
+                    
                     video.load();
                     video.play();
                 }
+            }
+
+            // Handle Text-to-Speech
+            if (state === 'talking' && data.text) {
+                const synth = window.speechSynthesis;
+                synth.cancel(); // Stop any previous speech
+                
+                // Clean markdown from the text
+                const cleanText = data.text.replace(/[\*\#\`\_]/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                
+                // Select a male voice if available
+                const voices = synth.getVoices();
+                // Find a male voice (often has 'male' or 'guy' or specific names like 'Google UK English Male' in name)
+                const maleVoice = voices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.includes('David') || v.name.includes('Mark'));
+                if (maleVoice) {
+                    utterance.voice = maleVoice;
+                }
+                
+                // Prevent garbage collection bug in some browsers
+                window.currentUtterance = utterance;
+                
+                utterance.onend = () => {
+                    // Switch back to idle when done speaking
+                    if (videoFiles['idle'] && videoSource.getAttribute('src') !== videoFiles['idle']) {
+                        videoSource.setAttribute('src', videoFiles['idle']);
+                        video.loop = true;
+                        video.load();
+                        video.play();
+                    }
+                };
+                
+                // Fallback in case onend fails to fire (WebKit bug)
+                utterance.onerror = utterance.onend;
+                
+                synth.speak(utterance);
+            } else if (state === 'idle') {
+                window.speechSynthesis.cancel();
             }
         };
     </script>
