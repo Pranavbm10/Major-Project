@@ -45,11 +45,8 @@ def init_db():
 init_db()
 
 # Configure Gemini
-# Load from environment variable, please set this in your .env file
+# In a real project, read this from an environment variable: os.getenv("GEMINI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GOOGLE_API_KEY or GOOGLE_API_KEY == "AIzaSyCmX1s9Gff-gyEfBsh7WhqdaO_uBOtiBY8" or GOOGLE_API_KEY == "AIzaSyCf0pOwfrD1x7l-ZCm7ftU8YDd41dltVfY":
-    print("WARNING: Using a missing or potentially leaked API key. Please update GEMINI_API_KEY in .env")
-    
 genai.configure(api_key=GOOGLE_API_KEY)
 # Initialize the model
 model = genai.GenerativeModel('gemini-3-flash-preview')
